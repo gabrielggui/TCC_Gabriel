@@ -1,8 +1,10 @@
+from webscrapper.webscrapper import start_web_scrapping
 from graficos.despesas import (
     despesa_por_mes_do_ano,
     TiposDeDespesa,
-    despesa_acumulada_por_ano,
+    despesa_acumulada_de_um_ano,
     despesa_acumulada_todos_os_anos,
+    despesa_dos_12_meses_de_um_ano
 )
 import os
 
@@ -27,10 +29,13 @@ def selecionar_tipo_despesa():
 def main():
     while True:
         print("Escolha uma opção:")
-        print("1. Consultar despesa em um mês do ano")
-        print("2. Consultar despesa acumulada de todos os meses em um ano")
-        print("3. Consultar despesa acumulada de todos os anos")
-        print("4. Sair")
+        print("1. Consultar despesas em um mês do ano")
+        print("2. Consultar despesas de todos os meses do ano")
+        print("3. Consultar despesas acumuladas de um ano")
+        print("4. Consultar despesas acumuladas de todos os anos")
+        print("--------------")
+        print("5. Baixar arquivos .json do Portal da Transparência")
+        print("6. Sair")
 
         choice = input("Escolha uma opção (1/2/3/4): ")
 
@@ -42,10 +47,18 @@ def main():
             despesa_por_mes_do_ano(user_year, user_month, tipo_despesa)
         elif choice == "2":
             user_year = int(input("Digite o ano desejado: "))
-            despesa_acumulada_por_ano(user_year)
+            tipo_despesa = selecionar_tipo_despesa()
+            despesa_dos_12_meses_de_um_ano(user_year,tipo_despesa)
         elif choice == "3":
-            despesa_acumulada_todos_os_anos()
+            user_year = int(input("Digite o ano desejado: "))
+            tipo_despesa = selecionar_tipo_despesa()
+            despesa_acumulada_de_um_ano(user_year,tipo_despesa)
         elif choice == "4":
+            tipo_despesa = selecionar_tipo_despesa()
+            despesa_acumulada_todos_os_anos(tipo_despesa)
+        elif choice == "5":
+            start_web_scrapping()
+        elif choice == "6":
             print("Saindo do programa.")
             break
         else:

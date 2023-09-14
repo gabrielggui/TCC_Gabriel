@@ -1,10 +1,10 @@
 from datetime import datetime, timedelta
-from api.http_connection import save_to_json_file, get_api_url
-from utils.file_utils import get_file_name
+from webscrapper.api.http_connection import save_to_json_file, get_api_url
+from webscrapper.utils.file_utils import get_file_name
 
 TYPES = ["despesa", "despesaOrcamentaria"]
 
-def main():
+def start_web_scrapping():
     for tipo in TYPES:
         start = datetime(datetime.now().year - 5, 1, 1)
         end = datetime.now()
@@ -26,6 +26,3 @@ def main():
             save_to_json_file(api_url, file_name)
 
             start = datetime(period_start.year + 1, 1, 1)
-
-if __name__ == "__main__":
-    main()

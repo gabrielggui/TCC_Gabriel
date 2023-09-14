@@ -5,7 +5,13 @@ BASE_URL = "https://transparencia.e-publica.net/epublica-portal/rest/assu/api/v1
 
 def save_to_json_file(url, file_name):
     file_name = file_name.replace("/", "")
+    file_name = "dados/" + file_name
 
+    # Verificar se o diretório existe e criar se não existir
+    directory = os.path.dirname(file_name)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+        
     try:
         response = requests.get(url)
         response.raise_for_status()

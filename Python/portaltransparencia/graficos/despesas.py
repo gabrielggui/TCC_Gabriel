@@ -5,7 +5,7 @@ from matplotlib.ticker import FuncFormatter
 from enum import Enum
 import os
 
-directory = '/home/gabriel/Área de Trabalho/TCC_Gabriel/Python/'
+directory = 'dados/'
 
 class TiposDeDespesa(Enum):
     APENAS_DESPESA = "despesa "
@@ -84,11 +84,11 @@ def despesa_por_mes_do_ano(user_year: int, user_month: int, tipo_de_despesa: Tip
         plt.tight_layout()
         plt.show()
 
-def despesa_acumulada_por_ano(user_year: int):
+def despesa_acumulada_de_um_ano(user_year: int, tipo_de_despesa: TiposDeDespesa):
     categories = set()
     values_by_category = {}
 
-    json_files = [filename for filename in os.listdir(directory) if filename.endswith('.json') and TiposDeDespesa.APENAS_DESPESA.value in filename.lower()]
+    json_files = [filename for filename in os.listdir(directory) if filename.endswith('.json') and tipo_de_despesa.value in filename.lower()]
 
     for json_file in json_files:
         with open(os.path.join(directory, json_file), 'r') as file:
@@ -101,7 +101,7 @@ def despesa_acumulada_por_ano(user_year: int):
                         
                         if year == user_year:
                             value = movimento['valorMovimento']
-                            category = registro['registro']['naturezaDespesa']['detalhamento']['denominacao']
+                            category = registro['registro']['naturezaDespesa']['detalhamento' if tipo_de_despesa == TiposDeDespesa.APENAS_DESPESA else 'elemento']['denominacao']
 
                             if category not in categories:
                                 categories.add(category)
@@ -153,11 +153,11 @@ def despesa_acumulada_por_ano(user_year: int):
         plt.tight_layout()
         plt.show()
 
-def despesa_acumulada_todos_os_anos():
+def despesa_acumulada_todos_os_anos(tipo_de_despesa: TiposDeDespesa):
     categories = set()
     values_by_category = {}
 
-    json_files = [filename for filename in os.listdir(directory) if filename.endswith('.json') and TiposDeDespesa.APENAS_DESPESA.value in filename.lower()]
+    json_files = [filename for filename in os.listdir(directory) if filename.endswith('.json') and tipo_de_despesa.value in filename.lower()]
 
     for json_file in json_files:
         with open(os.path.join(directory, json_file), 'r') as file:
@@ -169,7 +169,7 @@ def despesa_acumulada_todos_os_anos():
                         year = int(date.split('-')[0])
                         
                         value = movimento['valorMovimento']
-                        category = registro['registro']['naturezaDespesa']['detalhamento']['denominacao']
+                        category = registro['registro']['naturezaDespesa']['detalhamento' if tipo_de_despesa == TiposDeDespesa.APENAS_DESPESA else 'elemento']['denominacao']
 
                         if category not in categories:
                             categories.add(category)
@@ -220,3 +220,76 @@ def despesa_acumulada_todos_os_anos():
 
         plt.tight_layout()
         plt.show()
+
+def despesa_dos_12_meses_de_um_ano(user_year: int, tipo_de_despesa: TiposDeDespesa):
+
+    categories = set()
+    values_by_category = {month: {} for month in range(1, 13)}
+
+    json_files = [filename for filename in os.listdir(directory) if filename.endswith('.json') and tipo_de_despesa.value in filename.lower()]
+
+    for json_file in json_files:
+        with open(os.path.join(directory, json_file), 'r') as file:
+            data = json.load(file)
+            for registro in data['registros']:
+                for movimento in registro['registro']['listMovimentos']:
+                    if 'pagamento' in movimento['tipoMovimento'].lower():
+                        date = movimento['dataMovimento']
+                        year, month, _ = map(int, date.split('-'))
+                        
+                        if year == user_year:
+                            value = movimento['valorMovimento']
+                            category = registro['registro']['naturezaDespesa']['detalhamento' if tipo_de_despesa == TiposDeDespesa.APENAS_DESPESA else 'elemento']['denominacao']
+
+                            if category not in categories:
+                                categories.add(category)
+                                for month_num in range(1, 13):
+                                    values_by_category[month_num][category] = 0
+
+                            values_by_category[month][category] += value
+
+    # Organizar os valores em um formato adequado para o gráfico de barras empilhadas
+    stacked_data = [[] for _ in range(12)]
+
+    for month in range(1, 13):
+        category_values = [(category, values_by_category[month][category]) for category in categories]
+        category_values.sort(key=lambda x: x[1], reverse=True)
+
+        top_categories = category_values[:9]
+        other_value = sum([value for _, value in category_values[9:]])
+
+        for i, category in enumerate(top_categories):
+            stacked_data[month - 1].append(category[1])
+
+        stacked_data[month - 1].append(other_value)
+
+    month_labels = [f'Mês {month}' for month in range(1, 13)]
+    category_labels = [category[0] for category in top_categories] + ['demais despesas']
+
+    fig, ax = plt.subplots(figsize=(12, 8))
+
+    bar_width = 0.7
+    index = np.arange(len(month_labels))
+
+    bars = []
+    bottom = np.zeros(len(month_labels))
+
+    for i, category in enumerate(category_labels):
+        bar = ax.bar(index, [data[i] for data in stacked_data], bar_width, label=category, bottom=bottom)
+        bars.append(bar)
+        bottom += np.array([data[i] for data in stacked_data])
+
+    ax.set_xlabel('Mês')
+    ax.set_ylabel('Valor')
+    ax.set_title(f'Despesas dos 12 meses de {user_year}')
+    ax.set_xticks(index)
+    ax.set_xticklabels(month_labels)
+    ax.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
+
+    def currency_formatter(x, pos):
+        return "R${:,.2f}".format(x)
+
+    ax.yaxis.set_major_formatter(FuncFormatter(currency_formatter))
+
+    plt.tight_layout()
+    plt.show()

@@ -82,6 +82,7 @@ def despesa_por_mes_do_ano(user_year: int, user_month: int, tipo_de_despesa: Tip
         plt.legend(bars, legend_labels, title='Categorias', bbox_to_anchor=(1.05, 1), loc='upper left')
 
         plt.tight_layout()
+        salvar_grafico(f'DespPorMes_{user_month}-{user_year}_{tipo_de_despesa.name}.png')
         plt.show()
 
 def despesa_acumulada_de_um_ano(user_year: int, tipo_de_despesa: TiposDeDespesa):
@@ -151,6 +152,7 @@ def despesa_acumulada_de_um_ano(user_year: int, tipo_de_despesa: TiposDeDespesa)
         plt.legend(bars, legend_labels, title='Categorias', bbox_to_anchor=(1.05, 1), loc='upper left')
 
         plt.tight_layout()
+        salvar_grafico(f'DespAcum_{user_year}_{tipo_de_despesa.name}.png')
         plt.show()
 
 def despesa_acumulada_todos_os_anos(tipo_de_despesa: TiposDeDespesa):
@@ -219,6 +221,9 @@ def despesa_acumulada_todos_os_anos(tipo_de_despesa: TiposDeDespesa):
         plt.legend(bars, legend_labels, title='Categorias', bbox_to_anchor=(1.05, 1), loc='upper left')
 
         plt.tight_layout()
+
+        salvar_grafico(f'DespAcumTodosOsAnos_{tipo_de_despesa.name}.png')
+
         plt.show()
 
 def despesa_dos_12_meses_de_um_ano(user_year: int, tipo_de_despesa: TiposDeDespesa):
@@ -292,4 +297,18 @@ def despesa_dos_12_meses_de_um_ano(user_year: int, tipo_de_despesa: TiposDeDespe
     ax.yaxis.set_major_formatter(FuncFormatter(currency_formatter))
 
     plt.tight_layout()
+
+    salvar_grafico(f'Despesa12Meses_{tipo_de_despesa.name}_{user_year}.png')
+
     plt.show()
+
+
+def salvar_grafico(nome_do_arquivo: str):
+
+    output_directory = "img/"
+
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+
+    output_file_path = os.path.join(output_directory, nome_do_arquivo)
+    plt.savefig(output_file_path)

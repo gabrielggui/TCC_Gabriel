@@ -4,7 +4,7 @@ import numpy as np
 from matplotlib.ticker import FuncFormatter
 import os
 
-directory = '/home/gabriel/Área de Trabalho/py/'
+directory = '/home/gabriel/Área de Trabalho/TCC_Gabriel/Python/'
 
 json_files = [filename for filename in os.listdir(directory) if filename.endswith('.json') and 'despesa ' in filename.lower()]
 

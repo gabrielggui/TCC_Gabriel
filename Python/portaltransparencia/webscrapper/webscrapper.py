@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from webscrapper.api.http_connection import save_to_json_file, get_api_url
 from webscrapper.utils.file_utils import get_file_name
 
-TYPES = ["despesa", "despesaOrcamentaria"]
+TYPES = ["receita", "despesa", "despesaOrcamentaria"]
 
 def start_web_scrapping():
     for tipo in TYPES:

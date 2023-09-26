@@ -12,6 +12,24 @@ class TiposDeDespesa(Enum):
     APENAS_DESPESA_ORCAMENTARIA = "despesaorcamentaria"
     TODAS_AS_DESPESAS = "despesa"
     
+def format_legend_label(label, max_line_length=50):
+    # Função para formatar a legenda
+    if len(label) > max_line_length:
+        parts = label.split()
+        formatted_label = ""
+        line_length = 0
+        for part in parts:
+            if line_length + len(part) <= max_line_length:
+                formatted_label += part + " "
+                line_length += len(part) + 1
+            else:
+                formatted_label = formatted_label.rstrip()  # Remove espaços em branco à direita
+                formatted_label += "\n" + part + " "
+                line_length = len(part) + 1
+        return formatted_label.rstrip()
+    else:
+        return label
+
 def despesa_por_mes_do_ano(user_year: int, user_month: int, tipo_de_despesa: TiposDeDespesa):
     categories = set()
     values_by_category = {}
@@ -78,7 +96,7 @@ def despesa_por_mes_do_ano(user_year: int, user_month: int, tipo_de_despesa: Tip
         ax.yaxis.set_major_formatter(FuncFormatter(currency_formatter))
 
         # Criar uma legenda separada
-        legend_labels = [f'{category[0]} (R$ {category[1]:,.2f})' for category in top_categories]
+        legend_labels = [format_legend_label(f'{category[0]} (R$ {category[1]:,.2f})') for category in top_categories]
         plt.legend(bars, legend_labels, title='Categorias', bbox_to_anchor=(1.05, 1), loc='upper left')
 
         plt.tight_layout()
@@ -148,7 +166,7 @@ def despesa_acumulada_de_um_ano(user_year: int, tipo_de_despesa: TiposDeDespesa)
         ax.yaxis.set_major_formatter(FuncFormatter(currency_formatter))
 
         # Criar uma legenda separada
-        legend_labels = [f'{category[0]} (R$ {category[1]:,.2f})' for category in top_categories]
+        legend_labels = [format_legend_label(f'{category[0]} (R$ {category[1]:,.2f})') for category in top_categories]
         plt.legend(bars, legend_labels, title='Categorias', bbox_to_anchor=(1.05, 1), loc='upper left')
 
         plt.tight_layout()
@@ -217,7 +235,7 @@ def despesa_acumulada_todos_os_anos(tipo_de_despesa: TiposDeDespesa):
         ax.yaxis.set_major_formatter(FuncFormatter(currency_formatter))
 
         # Criar uma legenda separada
-        legend_labels = [f'{category[0]} (R$ {category[1]:,.2f})' for category in top_categories]
+        legend_labels = [format_legend_label(f'{category[0]} (R$ {category[1]:,.2f})') for category in top_categories]
         plt.legend(bars, legend_labels, title='Categorias', bbox_to_anchor=(1.05, 1), loc='upper left')
 
         plt.tight_layout()

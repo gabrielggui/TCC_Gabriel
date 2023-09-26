@@ -12,18 +12,15 @@ import os
 def selecionar_tipo_despesa():
 
     print("Escolha o tipo de despesa:")
-    print("1. Visualizar apenas dados do tipo \"despesa\"")
-    print("2. Visualizar apenas dados do tipo \"despesaOrcamentaria\"")
-    print("3. Visualizar todos os dados")
+    print("1. Visualizar dados do tipo \"despesa\"")
+    print("2. Visualizar dados do tipo \"despesaOrcamentaria\"")
 
     choiceTipoDespesa = input("Escolha uma opção (1/2/3): ")
 
     if choiceTipoDespesa == "1":
-        return TiposDeDespesa.APENAS_DESPESA
+        return TiposDeDespesa.DESPESA
     elif choiceTipoDespesa == "2":
-        return TiposDeDespesa.APENAS_DESPESA_ORCAMENTARIA
-    elif choiceTipoDespesa == "3":
-        return TiposDeDespesa.TODAS_AS_DESPESAS
+        return TiposDeDespesa.DESPESA_ORCAMENTARIA
     else:
         return ''
 

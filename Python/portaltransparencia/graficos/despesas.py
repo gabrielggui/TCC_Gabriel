@@ -8,9 +8,8 @@ import os
 directory = 'dados/'
 
 class TiposDeDespesa(Enum):
-    APENAS_DESPESA = "despesa "
-    APENAS_DESPESA_ORCAMENTARIA = "despesaorcamentaria"
-    TODAS_AS_DESPESAS = "despesa"
+    DESPESA = "despesa "
+    DESPESA_ORCAMENTARIA = "despesaorcamentaria"
     
 def format_legend_label(label, max_line_length=50):
     # Função para formatar a legenda
@@ -50,7 +49,7 @@ def despesa_por_mes_do_ano(user_year: int, user_month: int, tipo_de_despesa: Tip
                         
                         if year == user_year and month == user_month:
                             value = movimento['valorMovimento']
-                            category = registro['registro']['naturezaDespesa']['detalhamento' if tipo_de_despesa == TiposDeDespesa.APENAS_DESPESA else 'elemento']['denominacao']
+                            category = registro['registro']['naturezaDespesa']['detalhamento' if tipo_de_despesa == TiposDeDespesa.DESPESA else 'elemento']['denominacao']
 
                             if category not in categories:
                                 categories.add(category)
@@ -120,7 +119,7 @@ def despesa_acumulada_de_um_ano(user_year: int, tipo_de_despesa: TiposDeDespesa)
                         
                         if year == user_year:
                             value = movimento['valorMovimento']
-                            category = registro['registro']['naturezaDespesa']['detalhamento' if tipo_de_despesa == TiposDeDespesa.APENAS_DESPESA else 'elemento']['denominacao']
+                            category = registro['registro']['naturezaDespesa']['detalhamento' if tipo_de_despesa == TiposDeDespesa.DESPESA else 'elemento']['denominacao']
 
                             if category not in categories:
                                 categories.add(category)
@@ -189,7 +188,7 @@ def despesa_acumulada_todos_os_anos(tipo_de_despesa: TiposDeDespesa):
                         year = int(date.split('-')[0])
                         
                         value = movimento['valorMovimento']
-                        category = registro['registro']['naturezaDespesa']['detalhamento' if tipo_de_despesa == TiposDeDespesa.APENAS_DESPESA else 'elemento']['denominacao']
+                        category = registro['registro']['naturezaDespesa']['detalhamento' if tipo_de_despesa == TiposDeDespesa.DESPESA else 'elemento']['denominacao']
 
                         if category not in categories:
                             categories.add(category)
@@ -262,7 +261,7 @@ def despesa_dos_12_meses_de_um_ano(user_year: int, tipo_de_despesa: TiposDeDespe
                         
                         if year == user_year:
                             value = movimento['valorMovimento']
-                            category = registro['registro']['naturezaDespesa']['detalhamento' if tipo_de_despesa == TiposDeDespesa.APENAS_DESPESA else 'elemento']['denominacao']
+                            category = registro['registro']['naturezaDespesa']['detalhamento' if tipo_de_despesa == TiposDeDespesa.DESPESA else 'elemento']['denominacao']
 
                             if category not in categories:
                                 categories.add(category)

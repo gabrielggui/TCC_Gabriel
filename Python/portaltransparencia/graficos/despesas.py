@@ -319,7 +319,6 @@ def despesa_dos_12_meses_de_um_ano(user_year: int, tipo_de_despesa: TiposDeDespe
 
     plt.show()
 
-
 def salvar_grafico(nome_do_arquivo: str):
 
     output_directory = "img/"

@@ -1,5 +1,7 @@
 import json
+import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import numpy as np
 from matplotlib.ticker import FuncFormatter
 import os
@@ -38,7 +40,7 @@ def receita_acumulada_de_um_ano(user_year: int):
                     if 'arrecadação' in movimento['tipoMovimento'].lower():
                         date = movimento['dataMovimento']
                         year = int(date.split('-')[0])
-                        
+
                         if year == user_year:
                             value = movimento['valorMovimento']
                             category = registro['registro']['naturezaReceita']['alinea']['denominacao']
@@ -64,7 +66,7 @@ def receita_acumulada_de_um_ano(user_year: int):
     if not values_by_category:
         print("Não há valores em nenhuma das categorias para o ano especificado.")
     else:
-        fig, ax = plt.subplots(figsize=(10, 6))
+        fig, ax = plt.subplots(figsize=(11, 6))
 
         bar_width = 0.5
         index = np.arange(len(category_labels))
@@ -86,9 +88,15 @@ def receita_acumulada_de_um_ano(user_year: int):
 
         ax.yaxis.set_major_formatter(FuncFormatter(currency_formatter))
 
+        # Anotar as porcentagens nas barras
+        total = sum(category_values)
+        for i, v in enumerate(category_values):
+            percentage = (v / total) * 100
+            ax.annotate(f"{percentage:.1f}%", (i, v), ha='center', va='bottom')
+
         # Criar uma legenda separada
         legend_labels = [format_legend_label(f'{category[0]} (R$ {category[1]:,.2f})') for category in top_categories]
-        plt.legend(bars, legend_labels, title='Categorias', bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.legend(bars, legend_labels, title='Categorias', bbox_to_anchor=(1.05, 1), loc='upper left', fontsize='large')
 
         plt.tight_layout()
         salvar_grafico(f'RecAcum_{user_year}.png')
@@ -103,3 +111,49 @@ def salvar_grafico(nome_do_arquivo: str):
 
     output_file_path = os.path.join(output_directory, nome_do_arquivo)
     plt.savefig(output_file_path)
+
+def lista_de_receitas(user_year: int):
+    categories = set()
+    values_by_category = {}
+
+    json_files = [filename for filename in os.listdir(directory) if filename.endswith('.json') and "receita" in filename.lower()]
+
+    for json_file in json_files:
+        with open(os.path.join(directory, json_file), 'r') as file:
+            data = json.load(file)
+            for registro in data['registros']:
+                for movimento in registro['registro']['listMovimentos']:
+                    if 'arrecadação' in movimento['tipoMovimento'].lower():
+                        date = movimento['dataMovimento']
+                        year = int(date.split('-')[0])
+
+                        if year == user_year:
+                            value = movimento['valorMovimento']
+                            category = registro['registro']['naturezaReceita']['especie']['denominacao']
+
+                            if category not in categories:
+                                categories.add(category)
+                                values_by_category[category] = value
+                            else:
+                                values_by_category[category] += value
+
+    sorted_categories = sorted(values_by_category.items(), key=lambda x: x[1], reverse=True)
+
+    # Mostrar todas as categorias, não apenas as 10 maiores
+    category_labels = [category[0] for category in sorted_categories]
+    category_values = [category[1] for category in sorted_categories]
+
+    if not values_by_category:
+        print("Não há valores em nenhuma das categorias para o ano especificado.")
+    else:
+        # Crie um DataFrame do pandas para exibir os dados em uma tabela
+        data = {'Categoria': category_labels, 'Valor': category_values}
+        df = pd.DataFrame(data)
+
+        # Salve o DataFrame em um arquivo CSV
+        df.to_csv(f'dados/ListaReceitas_{user_year}.csv', index=False)
+
+        # Exiba o DataFrame
+        print(f'Lista de receitas salvas em "dados/ListaReceitas_{user_year}.csv"')
+
+lista_de_receitas(2022)

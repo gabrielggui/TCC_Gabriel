@@ -102,6 +102,82 @@ def receita_acumulada_de_um_ano(user_year: int):
         salvar_grafico(f'RecAcum_{user_year}.png')
         plt.show()
 
+def receita_dos_12_meses_de_um_ano(user_year: int):
+
+    categories = set()
+    values_by_category = {month: {} for month in range(1, 13)}
+
+    json_files = [filename for filename in os.listdir(directory) if filename.endswith('.json') and "receita" in filename.lower()]
+
+    for json_file in json_files:
+        with open(os.path.join(directory, json_file), 'r') as file:
+            data = json.load(file)
+            for registro in data['registros']:
+                for movimento in registro['registro']['listMovimentos']:
+                    if 'arrecadação' in movimento['tipoMovimento'].lower():
+                        date = movimento['dataMovimento']
+                        year, month, _ = map(int, date.split('-'))
+                        
+                        if year == user_year:
+                            value = movimento['valorMovimento']
+                            category = registro['registro']['naturezaReceita']['alinea']['denominacao']
+
+                            if category not in categories:
+                                categories.add(category)
+                                for month_num in range(1, 13):
+                                    values_by_category[month_num][category] = 0
+
+                            values_by_category[month][category] += value
+
+    # Organizar os valores em um formato adequado para o gráfico de barras empilhadas
+    stacked_data = [[] for _ in range(12)]
+
+    for month in range(1, 13):
+        category_values = [(category, values_by_category[month][category]) for category in categories]
+        category_values.sort(key=lambda x: x[1], reverse=True)
+
+        top_categories = category_values[:9]
+        other_value = sum([value for _, value in category_values[9:]])
+
+        for i, category in enumerate(top_categories):
+            stacked_data[month - 1].append(category[1])
+
+        stacked_data[month - 1].append(other_value)
+
+    month_labels = [f'Mês {month}' for month in range(1, 13)]
+    category_labels = [category[0] for category in top_categories] + ['demais despesas']
+
+    fig, ax = plt.subplots(figsize=(12, 8))
+
+    bar_width = 0.7
+    index = np.arange(len(month_labels))
+
+    bars = []
+    bottom = np.zeros(len(month_labels))
+
+    for i, category in enumerate(category_labels):
+        bar = ax.bar(index, [data[i] for data in stacked_data], bar_width, label=category, bottom=bottom)
+        bars.append(bar)
+        bottom += np.array([data[i] for data in stacked_data])
+
+    ax.set_xlabel('Mês')
+    ax.set_ylabel('Valor')
+    ax.set_title(f'Despesas dos 12 meses de {user_year}')
+    ax.set_xticks(index)
+    ax.set_xticklabels(month_labels)
+    ax.legend(loc='upper left', bbox_to_anchor=(1.05, 1))
+
+    def currency_formatter(x, pos):
+        return "R${:,.2f}".format(x)
+
+    ax.yaxis.set_major_formatter(FuncFormatter(currency_formatter))
+
+    plt.tight_layout()
+
+    salvar_grafico(f'Receita12Meses_{user_year}.png')
+
+    plt.show()
+
 def salvar_grafico(nome_do_arquivo: str):
 
     output_directory = "img/"
@@ -117,43 +193,20 @@ def lista_de_receitas(user_year: int):
     values_by_category = {}
 
     json_files = [filename for filename in os.listdir(directory) if filename.endswith('.json') and "receita" in filename.lower()]
+    tipo_movimento_list = []
 
     for json_file in json_files:
         with open(os.path.join(directory, json_file), 'r') as file:
             data = json.load(file)
             for registro in data['registros']:
-                for movimento in registro['registro']['listMovimentos']:
-                    if 'arrecadação' in movimento['tipoMovimento'].lower():
-                        date = movimento['dataMovimento']
-                        year = int(date.split('-')[0])
+                    movimentos = registro.get("registro", {}).get("listMovimentos", [])
+                    for movimento in movimentos:
+                        tipo_movimento_list.append({"Tipo de Movimento": movimento.get("tipoMovimento")})
 
-                        if year == user_year:
-                            value = movimento['valorMovimento']
-                            category = registro['registro']['naturezaReceita']['especie']['denominacao']
+    # Criar DataFrame
+    df = pd.DataFrame(tipo_movimento_list)
 
-                            if category not in categories:
-                                categories.add(category)
-                                values_by_category[category] = value
-                            else:
-                                values_by_category[category] += value
+    # Exibir a tabela
+    print(df)
 
-    sorted_categories = sorted(values_by_category.items(), key=lambda x: x[1], reverse=True)
-
-    # Mostrar todas as categorias, não apenas as 10 maiores
-    category_labels = [category[0] for category in sorted_categories]
-    category_values = [category[1] for category in sorted_categories]
-
-    if not values_by_category:
-        print("Não há valores em nenhuma das categorias para o ano especificado.")
-    else:
-        # Crie um DataFrame do pandas para exibir os dados em uma tabela
-        data = {'Categoria': category_labels, 'Valor': category_values}
-        df = pd.DataFrame(data)
-
-        # Salve o DataFrame em um arquivo CSV
-        df.to_csv(f'dados/ListaReceitas_{user_year}.csv', index=False)
-
-        # Exiba o DataFrame
-        print(f'Lista de receitas salvas em "dados/ListaReceitas_{user_year}.csv"')
-
-lista_de_receitas(2022)
+lista_de_receitas(2023)

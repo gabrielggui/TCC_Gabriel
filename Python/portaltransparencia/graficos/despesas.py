@@ -1,6 +1,7 @@
 import json
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from matplotlib.ticker import FuncFormatter
 from enum import Enum
 import os
@@ -119,7 +120,7 @@ def despesa_acumulada_de_um_ano(user_year: int, tipo_de_despesa: TiposDeDespesa)
                         
                         if year == user_year:
                             value = movimento['valorMovimento']
-                            category = registro['registro']['naturezaDespesa']['detalhamento' if tipo_de_despesa == TiposDeDespesa.DESPESA else 'elemento']['denominacao']
+                            category = registro['registro']['naturezaDespesa']['elemento']['denominacao']
 
                             if category not in categories:
                                 categories.add(category)
@@ -134,7 +135,7 @@ def despesa_acumulada_de_um_ano(user_year: int, tipo_de_despesa: TiposDeDespesa)
     other_categories = sorted_categories[10:]
 
     other_values = sum(category[1] for category in other_categories)
-    top_categories.append(("demais despesas", other_values))
+    top_categories.append(("Demais despesas", other_values))
 
     category_labels = [category[0] for category in top_categories]
     category_values = [category[1] for category in top_categories]
@@ -166,7 +167,7 @@ def despesa_acumulada_de_um_ano(user_year: int, tipo_de_despesa: TiposDeDespesa)
 
         # Criar uma legenda separada
         legend_labels = [format_legend_label(f'{category[0]} (R$ {category[1]:,.2f})') for category in top_categories]
-        plt.legend(bars, legend_labels, title='Categorias', bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.legend(bars, legend_labels, title='Categorias', bbox_to_anchor=(1.05, 1), loc='upper left', fontsize='large')
 
         plt.tight_layout()
         salvar_grafico(f'DespAcum_{user_year}_{tipo_de_despesa.name}.png')
@@ -188,7 +189,7 @@ def despesa_acumulada_todos_os_anos(tipo_de_despesa: TiposDeDespesa):
                         year = int(date.split('-')[0])
                         
                         value = movimento['valorMovimento']
-                        category = registro['registro']['naturezaDespesa']['detalhamento' if tipo_de_despesa == TiposDeDespesa.DESPESA else 'elemento']['denominacao']
+                        category = registro['registro']['naturezaDespesa']['elemento']['denominacao']
 
                         if category not in categories:
                             categories.add(category)
@@ -233,9 +234,14 @@ def despesa_acumulada_todos_os_anos(tipo_de_despesa: TiposDeDespesa):
 
         ax.yaxis.set_major_formatter(FuncFormatter(currency_formatter))
 
+        total = sum(category_values)
+        for i, v in enumerate(category_values):
+            percentage = (v / total) * 100
+            ax.annotate(f"{percentage:.1f}%", (i, v), ha='center', va='bottom')
+
         # Criar uma legenda separada
         legend_labels = [format_legend_label(f'{category[0]} (R$ {category[1]:,.2f})') for category in top_categories]
-        plt.legend(bars, legend_labels, title='Categorias', bbox_to_anchor=(1.05, 1), loc='upper left')
+        plt.legend(bars, legend_labels, title='Categorias', bbox_to_anchor=(1.05, 1), loc='upper left', fontsize='large')
 
         plt.tight_layout()
 
@@ -328,3 +334,28 @@ def salvar_grafico(nome_do_arquivo: str):
 
     output_file_path = os.path.join(output_directory, nome_do_arquivo)
     plt.savefig(output_file_path)
+
+def lista_de_despesas():    
+    categories = set()
+    values_by_category = {}
+    valor = 0.0
+    json_files = [filename for filename in os.listdir(directory) if filename.endswith('.json') and "despesa - 1 a 12 - 2022" in filename.lower()]
+    tipo_movimento_list = set()
+
+    for json_file in json_files:
+        with open(os.path.join(directory, json_file), 'r') as file:
+            data = json.load(file)
+            for registro in data['registros']:
+                    movimentos = registro.get("registro", {}).get("listMovimentos", [])
+                    for movimento in movimentos:
+                        tipo_movimento_list.add(movimento.get("tipoMovimento"))
+                        if movimento.get("tipoMovimento") == "Emissão de empenho":
+                            valor = valor + movimento.get("valorMovimento")
+
+    # Criar DataFrame
+    df = pd.DataFrame(tipo_movimento_list)
+
+    # Exibir a tabela
+    print(valor)
+
+lista_de_despesas()

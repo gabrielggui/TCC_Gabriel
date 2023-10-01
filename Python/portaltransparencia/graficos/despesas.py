@@ -335,27 +335,48 @@ def salvar_grafico(nome_do_arquivo: str):
     output_file_path = os.path.join(output_directory, nome_do_arquivo)
     plt.savefig(output_file_path)
 
-def lista_de_despesas():    
+def lista_de_despesas(user_year: int):
     categories = set()
     values_by_category = {}
-    valor = 0.0
-    json_files = [filename for filename in os.listdir(directory) if filename.endswith('.json') and "despesa - 1 a 12 - 2022" in filename.lower()]
-    tipo_movimento_list = set()
+
+    json_files = [filename for filename in os.listdir(directory) if filename.endswith('.json') and "despesa - " in filename.lower()]
 
     for json_file in json_files:
         with open(os.path.join(directory, json_file), 'r') as file:
             data = json.load(file)
             for registro in data['registros']:
-                    movimentos = registro.get("registro", {}).get("listMovimentos", [])
-                    for movimento in movimentos:
-                        tipo_movimento_list.add(movimento.get("tipoMovimento"))
-                        if movimento.get("tipoMovimento") == "Emissão de empenho":
-                            valor = valor + movimento.get("valorMovimento")
+                for movimento in registro['registro']['listMovimentos']:
+                    if True:
+                        date = movimento['dataMovimento']
+                        year = int(date.split('-')[0])
 
-    # Criar DataFrame
-    df = pd.DataFrame(tipo_movimento_list)
+                        if year == user_year:
+                            value = movimento['valorMovimento']
+                            category = movimento['tipoMovimento']
 
-    # Exibir a tabela
-    print(valor)
+                            if category not in categories:
+                                categories.add(category)
+                                values_by_category[category] = value
+                            else:
+                                values_by_category[category] += value
 
-lista_de_despesas()
+    sorted_categories = sorted(values_by_category.items(), key=lambda x: x[1], reverse=True)
+
+    # Mostrar todas as categorias, não apenas as 10 maiores
+    category_labels = [category[0] for category in sorted_categories]
+    category_values = [category[1] for category in sorted_categories]
+
+    if not values_by_category:
+        print("Não há valores em nenhuma das categorias para o ano especificado.")
+    else:
+        # Crie um DataFrame do pandas para exibir os dados em uma tabela
+        data = {'Categoria': category_labels, 'Valor': category_values}
+        df = pd.DataFrame(data)
+
+        # Salve o DataFrame em um arquivo CSV
+        df.to_csv(f'dados/ListaDespesas_{user_year}.csv', index=False)
+
+        # Exiba o DataFrame
+        print(f'Lista de despesas salvas em "dados/ListaDespesas_{user_year}.csv"')
+    
+lista_de_despesas(2023)

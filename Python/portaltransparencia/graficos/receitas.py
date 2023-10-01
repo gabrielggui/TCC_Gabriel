@@ -37,7 +37,7 @@ def receita_acumulada_de_um_ano(user_year: int):
             data = json.load(file)
             for registro in data['registros']:
                 for movimento in registro['registro']['listMovimentos']:
-                    if 'arrecadação' in movimento['tipoMovimento'].lower():
+                    if 'Arrecadação de receita' == movimento['tipoMovimento']:
                         date = movimento['dataMovimento']
                         year = int(date.split('-')[0])
 
@@ -114,7 +114,7 @@ def receita_dos_12_meses_de_um_ano(user_year: int):
             data = json.load(file)
             for registro in data['registros']:
                 for movimento in registro['registro']['listMovimentos']:
-                    if 'arrecadação' in movimento['tipoMovimento'].lower():
+                    if 'Arrecadação de receita' == movimento['tipoMovimento']:
                         date = movimento['dataMovimento']
                         year, month, _ = map(int, date.split('-'))
                         
@@ -193,20 +193,43 @@ def lista_de_receitas(user_year: int):
     values_by_category = {}
 
     json_files = [filename for filename in os.listdir(directory) if filename.endswith('.json') and "receita" in filename.lower()]
-    tipo_movimento_list = []
 
     for json_file in json_files:
         with open(os.path.join(directory, json_file), 'r') as file:
             data = json.load(file)
             for registro in data['registros']:
-                    movimentos = registro.get("registro", {}).get("listMovimentos", [])
-                    for movimento in movimentos:
-                        tipo_movimento_list.append({"Tipo de Movimento": movimento.get("tipoMovimento")})
+                for movimento in registro['registro']['listMovimentos']:
+                    if True:
+                        date = movimento['dataMovimento']
+                        year = int(date.split('-')[0])
 
-    # Criar DataFrame
-    df = pd.DataFrame(tipo_movimento_list)
+                        if year == user_year:
+                            value = movimento['valorMovimento']
+                            category = movimento['tipoMovimento']
 
-    # Exibir a tabela
-    print(df)
+                            if category not in categories:
+                                categories.add(category)
+                                values_by_category[category] = value
+                            else:
+                                values_by_category[category] += value
+
+    sorted_categories = sorted(values_by_category.items(), key=lambda x: x[1], reverse=True)
+
+    # Mostrar todas as categorias, não apenas as 10 maiores
+    category_labels = [category[0] for category in sorted_categories]
+    category_values = [category[1] for category in sorted_categories]
+
+    if not values_by_category:
+        print("Não há valores em nenhuma das categorias para o ano especificado.")
+    else:
+        # Crie um DataFrame do pandas para exibir os dados em uma tabela
+        data = {'Categoria': category_labels, 'Valor': category_values}
+        df = pd.DataFrame(data)
+
+        # Salve o DataFrame em um arquivo CSV
+        df.to_csv(f'dados/ListaReceitas_{user_year}.csv', index=False)
+
+        # Exiba o DataFrame
+        print(f'Lista de receitas salvas em "dados/ListaReceitas_{user_year}.csv"')
 
 lista_de_receitas(2023)

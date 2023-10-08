@@ -1,8 +1,4 @@
-from time import strptime
-from matplotlib import pyplot as plt
-from matplotlib.ticker import FuncFormatter
 import locale
-import numpy as np
 import streamlit as st
 import os
 import json
@@ -15,12 +11,8 @@ class TiposDeDados(Enum):
     DESPESA = "despesa -"
     RECEITA = "receita -"
 
-class CategoriasDespesa(Enum):
-    OUTROS_SERVICOS_TERCEIROS = "Outros Serviços de Terceiros - Pessoa Jurídica"
-    MATERIAL_DE_CONSUMO = "Material de Consumo"
-
-# Substitua 'directory' pelo caminho real do seu diretório
 directory = 'dados/'
+despesa_categories = set()
 custom_colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#e68728', '#0c5922', '#dd4477', '#6633cc', '#5981d3', '#334278']
 
 
@@ -68,15 +60,11 @@ def categorias_economicas_receita(user_year):
                             values_by_category[tipo_movimento] = value
                         else:
                             values_by_category[tipo_movimento] += value
-    # Criar um DataFrame do pandas
     df = pd.DataFrame(list(values_by_category.items()), columns=['Categoria', 'Valor'])
-    # Formatar os valores para reais
     df['Valor Formatado'] = df['Valor'].apply(formatar_moeda)
-    # Criar gráfico de barras horizontais usando Plotly
     fig = px.bar(df, x='Valor', y='Categoria', orientation='h', text='Valor Formatado')
     fig.update_traces(marker_color=custom_colors)
 
-    # Exibir gráfico
     st.plotly_chart(fig, use_container_width=True)
 
 
@@ -104,7 +92,6 @@ def receitas_por_especie(user_year):
 
     sorted_categories = sorted(values_by_category.items(), key=lambda x: x[1], reverse=True)
 
-    # Mostrar apenas as 10 maiores categorias e agrupar o restante em 'Outros'
     top_categories = sorted_categories[:5]
     other_categories = sorted_categories[5:]
 
@@ -121,9 +108,8 @@ def receitas_por_especie(user_year):
     if not values_by_category:
         st.warning("Não há valores em nenhuma das categorias para o ano especificado.")
     else:
-        # Criar um gráfico de treemap
         fig = px.treemap(df, path=['category_labels'], values='category_values', color_discrete_sequence=custom_colors)
-        fig.update_layout(font=dict(size=19))
+        fig.update_layout(font=dict(size=18))
         
         st.plotly_chart(fig, use_container_width=True)
 
@@ -161,37 +147,43 @@ def receita_12meses(user_year: int):
                 'Valor': value
             })
 
-    # Crie o DataFrame
     df = pd.DataFrame(data)
     df = df.sort_values(by='Valor', ascending=False)
 
-    # Criar um gráfico de barras empilhadas com Plotly Express
     fig = px.bar(df, x='Mês', y='Valor', color='Categoria',
-                labels={'Valor': 'Valor', 'Categoria': 'Categoria'})
+                labels={'Valor': 'Valor', 'Categoria': 'Espécie'})
 
-    # Adicione um rótulo informativo ao eixo Y
     fig.update_yaxes(title_text='Valor (R$)')
-
-    # Formatando o texto que aparece ao passar o mouse sobre as barras
     fig.update_traces(hovertemplate='R$ %{y:,.2f}')
-
     total_por_categoria = df['Valor'].sum()
 
-
-    st.markdown(f'<h6 style=\'text-align: center;\'>Valor total: {locale.currency(total_por_categoria, grouping=True)}</h6>', unsafe_allow_html=True) 
-    # Exiba o gráfico no Streamlit
-
-    # Formatando o eixo x como moeda em reais
     fig.update_layout(yaxis_tickformat='$,.2f')
-    st.plotly_chart(fig, use_container_width=True)
 
-def boxplot_despesa_dos_12_meses_de_um_ano(user_year: int, categoria_despesa):
+    # Adiciona o valor total acima de cada barra
+    for month_num in range(1, 13):
+        total_por_mes = df[df['Mês'] == month_num]['Valor'].sum()
+        fig.add_annotation(
+            x=month_num,
+            y=total_por_mes,
+            text=f'          {locale.currency(total_por_mes, grouping=True)}',
+            arrowhead=0,
+            arrowcolor="black",
+            arrowwidth=1,
+            arrowsize=1,
+            font=dict(size=9),
+            yshift=5
+        )
+
+    st.plotly_chart(fig, use_container_width=True)
+    st.markdown(f'<h4 style=\'text-align: center;\'>Total de receitas no ano: {locale.currency(total_por_categoria, grouping=True)}</h4>', unsafe_allow_html=True) 
+
+def dados_estatisticos_mes(user_year: int, user_month: int, categoria_despesa: str):
     categories = set()
     values_by_category = {month: {} for month in range(1, 13)}
 
     json_files = [filename for filename in os.listdir(directory) if filename.endswith('.json' if user_year == 0 else f'{user_year}.json') and TiposDeDados.DESPESA.value in filename.lower()]
 
-    top_expenses = []  # Lista para armazenar as 100 maiores despesas
+    top_expenses = []
 
     for json_file in json_files:
         with open(os.path.join(directory, json_file), 'r') as file:
@@ -203,7 +195,7 @@ def boxplot_despesa_dos_12_meses_de_um_ano(user_year: int, categoria_despesa):
 
                     category = registro['registro']['naturezaDespesa']['elemento']['denominacao']
 
-                    if ((year == user_year or user_year == 0) and category == categoria_despesa):
+                    if (year == user_year and (month == user_month or user_month == 0) and (categoria_despesa == category or categoria_despesa == "Todos")):
                         value = empenho_item['quantidade'] * empenho_item['valorUnitario']
 
                         if value != 0:
@@ -214,51 +206,92 @@ def boxplot_despesa_dos_12_meses_de_um_ano(user_year: int, categoria_despesa):
 
                             values_by_category[month][category].append(value)
 
-                                # Adicionar à lista de despesas para tabela
+                            top_expenses.append({
+                                'Valor total': value
+                            })
+    
+    # Calcular e exibir estatísticas
+    valores_totais = pd.DataFrame(top_expenses)
+
+    if 'Valor total' in valores_totais.columns:
+        valores_totais = valores_totais.get('Valor total', 0).apply(lambda x: float(x))
+        media = valores_totais.mean()
+        mediana = valores_totais.median()
+        desvio_padrao = valores_totais.std()
+            
+        print("Estatísticas:")
+        print(f"Média: {formatar_moeda(media)}")
+        print(f"Mediana: {formatar_moeda(mediana)}")
+        print(f"Desvio Padrão: {desvio_padrao}")
+        print(f'Coeficiente de Variação: {(desvio_padrao / media) * 100:.2f}%') 
+
+def maiores_despesas_ano(user_year: int, user_month: int, categoria_despesa: str, numero_resultados: int):
+    categories = set()
+    values_by_category = {month: {} for month in range(1, 13)}
+
+    json_files = [filename for filename in os.listdir(directory) if filename.endswith('.json' if user_year == 0 else f'{user_year}.json') and TiposDeDados.DESPESA.value in filename.lower()]
+
+    top_expenses = []
+
+    for json_file in json_files:
+        with open(os.path.join(directory, json_file), 'r') as file:
+            data = json.load(file)
+            for registro in data['registros']:
+                for empenho_item in registro['registro']['listEmpenhoItens']:
+                    emissao = registro['registro']['empenho']['emissao']
+                    year, month, _ = map(int, emissao.split('-'))
+
+                    category = registro['registro']['naturezaDespesa']['elemento']['denominacao']
+
+                    if (year == user_year and (month == user_month or user_month == 0) and (categoria_despesa == category or categoria_despesa == "Todos")):
+                        value = empenho_item['quantidade'] * empenho_item['valorUnitario']
+
+                        if value != 0:
+                            if category not in categories:
+                                categories.add(category)
+                                for month_num in range(1, 13):
+                                    values_by_category[month_num][category] = []
+
+                            values_by_category[month][category].append(value)
+
                             top_expenses.append({
                                 'Categoria': category,
                                 'Denominação do Empenho': empenho_item['denominacao'],
                                 'Emissão': datetime.strptime(emissao, "%Y-%m-%d").strftime("%d/%m/%Y"),
                                 'Quantidade': empenho_item['quantidade'],
+                                'Unidade de Medida': empenho_item['unidadeMedida']['sigla'],
                                 'Valor unitário': empenho_item['valorUnitario'],
                                 'Valor total': value
                             })
+    
+    # Calcular e exibir estatísticas
+    valores_totais = pd.DataFrame(top_expenses)
 
-    # Organizar os valores em um formato adequado para o gráfico de box plot
-    data = {
-        'Mês': [],
-        'Categoria': [],
-        'Valor': []
-    }
+    if 'Valor total' in valores_totais.columns:
+        valores_totais = valores_totais.get('Valor total', 0).apply(lambda x: float(x))
+        media = valores_totais.mean()
+        mediana = valores_totais.median()
+        desvio_padrao = valores_totais.std()
 
-    for month in range(1, 13):
-        for category, values in values_by_category[month].items():
-            for value in values:
-                data['Mês'].append(month)
-                data['Categoria'].append(category)
-                data['Valor'].append(value)
+        row1, row2, row3, row4 = st.columns((1, 1, 1, 1))
+        with row1:
+            st.markdown("<h6 style='text-align: center;'>Média:</h6>", unsafe_allow_html=True) 
+            st.markdown(f'<center>{formatar_moeda(media)}</center>', unsafe_allow_html=True)
+        with row2:
+            st.markdown("<h6 style='text-align: center;'>Mediana:</h6>", unsafe_allow_html=True)
+            st.markdown(f'<center>{formatar_moeda(mediana)}</center>', unsafe_allow_html=True)
+        with row3:
+            st.markdown("<h6 style='text-align: center;'>Desvio padrão:</h6>", unsafe_allow_html=True)
+            st.markdown(f'<center>{formatar_moeda(desvio_padrao)}</center>', unsafe_allow_html=True)
+        with row4: 
+            st.markdown("<h6 style='text-align: center;'>Coeficiente de variação:</h6>", unsafe_allow_html=True)
+            coeficiente_variacao = (desvio_padrao / media) * 100
+            st.markdown(f'<center>{coeficiente_variacao:.2f}%</center>', unsafe_allow_html=True)        
 
-    df = pd.DataFrame(data)
-
-    # Criar um gráfico de box plot com Plotly Express
-    fig = px.box(df, x='Mês', y='Valor', color='Categoria',
-                 labels={'Valor': 'Valor', 'Mês': 'Mês', 'Categoria': 'Categoria'},
-                 height=700,log_y=True)
-
-    fig.update_traces(hovertemplate='R$ %{y:,.2f}')
-    fig.update_layout(yaxis_tickformat="R$,2f")
-    fig.update_yaxes(type="log", tickvals=[1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7], ticktext=["R$10,00", "R$100,00", "R$1.000,00", "R$10.000,00", "R$100.000,00", "R$1.000.000,00", "R$10.000.000,00"])
-
-    st.plotly_chart(fig, use_container_width=True)
-
-    st.markdown("<h2 style='text-align: center;'>Maiores despesas empenhadas no período</h2>", unsafe_allow_html=True) 
-    st.markdown("<h6 style='text-align: center;'>As 50 (vinte) maiores despesas empenhadas no período</h6>", unsafe_allow_html=True) 
-    # Exibir a tabela com as 100 maiores despesas
     if top_expenses:
         top_expenses_df = pd.DataFrame(top_expenses)
-        top_expenses_df = top_expenses_df.sort_values(by='Valor total', ascending=False).head(50)
+        top_expenses_df = top_expenses_df.sort_values(by='Valor total', ascending=False).head(numero_resultados)
 
-        # Formatar valores como reais na tabela
         formatted_df = top_expenses_df.copy()
         formatted_df['Valor total'] = formatted_df['Valor total'].apply(formatar_moeda)
         formatted_df['Valor unitário'] = formatted_df['Valor unitário'].apply(formatar_moeda)
@@ -266,8 +299,35 @@ def boxplot_despesa_dos_12_meses_de_um_ano(user_year: int, categoria_despesa):
 
         st.table(formatted_df)
     else:
-        st.warning("Não há despesas para o ano especificado.")
+        st.warning("Não há despesas para o período especificado.")
 
+def load_despesa_categories(user_year: int):
+    categories = set()
+    values_by_category = {month: {} for month in range(1, 13)}
+
+    json_files = [filename for filename in os.listdir(directory) if filename.endswith('.json' if user_year == 0 else f'{user_year}.json') and TiposDeDados.DESPESA.value in filename.lower()]
+
+    for json_file in json_files:
+        with open(os.path.join(directory, json_file), 'r') as file:
+            data = json.load(file)
+            for registro in data['registros']:
+                for empenho_item in registro['registro']['listEmpenhoItens']:
+                    emissao = registro['registro']['empenho']['emissao']
+                    year, month, _ = map(int, emissao.split('-'))
+
+                    category = registro['registro']['naturezaDespesa']['elemento']['denominacao']
+
+                    if year == user_year:
+                        value = empenho_item['quantidade'] * empenho_item['valorUnitario']
+
+                        if value != 0:
+                            if category not in categories:
+                                categories.add(category)
+                                despesa_categories.add(category)
+                                for month_num in range(1, 13):
+                                    values_by_category[month_num][category] = []
+
+                            values_by_category[month][category].append(value)
 
 def despesa_12meses(user_year: int):
     categories = set()
@@ -303,35 +363,42 @@ def despesa_12meses(user_year: int):
                 'Valor': value
             })
 
-    # Crie o DataFrame
     df = pd.DataFrame(data)
     df = df.sort_values(by='Valor', ascending=False)
 
-    # Criar um gráfico de barras empilhadas com Plotly Express
     fig = px.bar(df, x='Mês', y='Valor', color='Categoria',
-                labels={'Valor': 'Valor', 'Categoria': 'Categoria'})
+                labels={'Valor': 'Valor', 'Categoria': 'Elemento de despesa'})
 
-    # Adicione um rótulo informativo ao eixo Y
     fig.update_yaxes(title_text='Valor (R$)')
-
-    # Formatando o texto que aparece ao passar o mouse sobre as barras
     fig.update_traces(hovertemplate='R$ %{y:,.2f}')
-
     total_por_categoria = df['Valor'].sum()
 
+    fig.update_layout(yaxis_tickformat='$,.2f')
 
-    st.markdown(f'<h6 style=\'text-align: center;\'>Valor total: {locale.currency(total_por_categoria, grouping=True)}</h6>', unsafe_allow_html=True) 
-    # Exiba o gráfico no Streamlit
-
-    # Formatando o eixo x como moeda em reais
+    # Adiciona o valor total acima de cada barra
+    for month_num in range(1, 13):
+        total_por_mes = df[df['Mês'] == month_num]['Valor'].sum()
+        fig.add_annotation(
+            x=month_num,
+            y=total_por_mes,
+            text=f'          {locale.currency(total_por_mes, grouping=True)}',
+            arrowhead=2,
+            arrowcolor="black",
+            arrowwidth=2,
+            arrowsize=1,
+            font=dict(size=9),
+            yshift=5
+        )
     fig.update_layout(yaxis_tickformat='$,.2f')
     st.plotly_chart(fig, use_container_width=True)
+    st.markdown(f'<h4 style=\'text-align: center;\'>Total de despesas pagas no ano: {locale.currency(total_por_categoria, grouping=True)}</h4>', unsafe_allow_html=True) 
 
-def despesas_por_grupo(user_year):
+
+def despesas_por_elemento(user_year):
     categories = set()
     values_by_category = {}
 
-    json_files = [filename for filename in os.listdir(directory) if filename.endswith('.json' if user_year == 0 else f'{user_year}.json') and TiposDeDados.DESPESA.value in filename.lower()]
+    json_files = [filename for filename in os.listdir(directory) if filename.endswith(f'{user_year}.json') and TiposDeDados.DESPESA.value in filename.lower()]
 
     for json_file in json_files:
         with open(os.path.join(directory, json_file), 'r') as file:
@@ -341,7 +408,7 @@ def despesas_por_grupo(user_year):
                     if ('Pagamento de empenho' == movimento['tipoMovimento'] or 'Pagamento de restos a pagar' == movimento['tipoMovimento']):
                         value = movimento['valorMovimento']
 
-                        tipo_movimento = registro['registro']['naturezaDespesa']['grupo']['denominacao']
+                        tipo_movimento = registro['registro']['naturezaDespesa']['elemento']['denominacao']
 
                         if tipo_movimento not in categories:
                             categories.add(tipo_movimento)
@@ -351,9 +418,8 @@ def despesas_por_grupo(user_year):
 
     sorted_categories = sorted(values_by_category.items(), key=lambda x: x[1], reverse=True)
 
-    # Mostrar apenas as 10 maiores categorias e agrupar o restante em 'Outros'
-    top_categories = sorted_categories[:3]
-    other_categories = sorted_categories[3:]
+    top_categories = sorted_categories[:10]
+    other_categories = sorted_categories[10:]
 
     other_values = sum(category[1] for category in other_categories)
     top_categories.append(("Outros", other_values))
@@ -368,7 +434,6 @@ def despesas_por_grupo(user_year):
     if not values_by_category:
         st.warning("Não há valores em nenhuma das categorias para o ano especificado.")
     else:
-        # Criar um gráfico de treemap
         fig = px.treemap(df, path=['category_labels'], values='category_values', color_discrete_sequence=custom_colors)
         fig.update_layout(font=dict(size=17))
         
@@ -398,7 +463,6 @@ def despesas_por_secretaria(user_year):
 
     sorted_categories = sorted(values_by_category.items(), key=lambda x: x[1], reverse=True)
 
-    # Mostrar apenas as 10 maiores categorias e agrupar o restante em 'Outros'
     top_categories = sorted_categories[:5]
     other_categories = sorted_categories[5:]
 
@@ -415,7 +479,6 @@ def despesas_por_secretaria(user_year):
     if not values_by_category:
         st.warning("Não há valores em nenhuma das categorias para o ano especificado.")
     else:
-        # Criar um gráfico de treemap
         fig = px.treemap(df, path=['category_labels'], values='category_values', color_discrete_sequence=custom_colors)
         fig.update_layout(font=dict(size=17))
         
@@ -445,7 +508,6 @@ def despesas_por_area(user_year):
 
     sorted_categories = sorted(values_by_category.items(), key=lambda x: x[1], reverse=True)
 
-    # Mostrar apenas as 10 maiores categorias e agrupar o restante em 'Outros'
     top_categories = sorted_categories[:5]
     other_categories = sorted_categories[5:]
 
@@ -462,7 +524,6 @@ def despesas_por_area(user_year):
     if not values_by_category:
         st.warning("Não há valores em nenhuma das categorias para o ano especificado.")
     else:
-        # Criar um gráfico de treemap
         fig = px.treemap(df, path=['category_labels'], values='category_values', color_discrete_sequence=custom_colors)
         fig.update_layout(font=dict(size=17))
         
@@ -500,17 +561,15 @@ def categorias_economicas(user_year):
     if not values_by_category:
         st.warning("Não há valores em nenhuma das categorias para o ano especificado.")
     else:
-        # Create a pie chart using Plotly
         fig = px.pie(
             names=category_labels,
             values=category_values,
             labels={'value': 'Valor'},
-            title=f'Despesas por categoria econômica',
+            title=f'Pagamento de despesas por categoria econômica',
             color_discrete_sequence=custom_colors,
             hole=0.4,
         )
         fig.update_traces(hovertemplate='R$ %{value:,.2f}')
-        # Exibir o gráfico no Streamlit
         st.plotly_chart(fig, use_container_width=True)
 
 def execucao_restos_a_pagar(user_year):
@@ -551,7 +610,6 @@ def execucao_restos_a_pagar(user_year):
     if not values_by_category:
         st.warning("Não há valores em nenhuma das categorias para o ano especificado.")
     else:
-        # Criar um gráfico de barras responsivo usando Plotly Express
         fig = px.bar(
             x=category_labels,
             y=category_values,
@@ -560,9 +618,9 @@ def execucao_restos_a_pagar(user_year):
             text=category_values,
         )
 
-        fig.update_traces(texttemplate='%{text:.2s}', textposition='outside', hovertemplate='R$ %{y:,.2f}', marker_color=custom_colors)
+        fig.update_traces(texttemplate='R$ %{text:,.2f}', textposition='outside', hovertemplate='R$ %{y:,.2f}', marker_color=custom_colors)
 
-        fig.update_layout(yaxis_tickformat="R$,2f")
+        fig.update_layout(yaxis_tickformat="$,.2f")
 
         st.plotly_chart(fig, use_container_width=True)
 
@@ -616,23 +674,16 @@ def execucao_despesas(user_year):
             text=category_values,
         )
 
-        fig.update_traces(texttemplate='%{text:.2s}', hovertemplate='R$ %{y:,.2f}', textposition='outside')
-
+        fig.update_traces(texttemplate='R$ %{text:,.2f}', hovertemplate='R$ %{y:,.2f}', textposition='outside')
         fig.update_traces(marker_color=custom_colors)
-
-        fig.update_layout(yaxis_tickformat="R$,2f")
-        
-        # Tornar o gráfico responsivo com altura e largura relativas
+        fig.update_layout(yaxis_tickformat="$,.2f")
         st.plotly_chart(fig, use_container_width=True)
 
-
- 
 if __name__ == "__main__":
     locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
-    
     st.set_page_config(page_title="Dados Abertos - Prefeitura de Assú/RN", layout="wide")
 
-    st.warning("Observação: o conjunto de dados usado neste protótipo contém apenas dados entre janeiro de 2021 e dezembro de 2022.")   
+    st.warning("Observação: o conjunto de dados usado neste protótipo contém apenas dados entre janeiro de 2021 e setembro de 2023.")   
 
     #Título
     row0_spacer1, row0_1, row0_spacer2, row0_2, row0_spacer3 = st.columns((.1, 2.3, .1, .35, .1))
@@ -646,65 +697,82 @@ if __name__ == "__main__":
 
     st.markdown("---")
 
-    #SIDEBAR
-    row4_spacer1, row4_1, row4_spacer2 = st.columns((.2, 7.1, .2))
+    #Sidebar
+    st.sidebar.title('Configurações')
 
-    st.sidebar.title('Análise')
-    tipo_de_dados = st.sidebar.selectbox ("Qual o tipo de dados?", list(TiposDeDados.__members__.keys()), key = 'attribute')
-    ano = st.sidebar.selectbox ("Qual ano você quer analisar?", [2023 ,2022, 2021], key = 'measure_team')
+    tipo_de_dados = st.sidebar.selectbox("Qual o tipo de dados?", list(TiposDeDados.__members__.keys()), key = 'tipo_dados')
+    
+    ano_exercicio = st.sidebar.selectbox("Qual ano você quer analisar?", [2023 ,2022, 2021], key = 'ano_exercicio')
+
+    load_despesa_categories(ano_exercicio)
 
     if tipo_de_dados == "DESPESA":
-
-        st.markdown("<h2 style='text-align: center;'>Visão Geral</h2>", unsafe_allow_html=True) 
+                
         #SEC1
-        row5_1_1, row5_2_1, row5_3_1 = st.columns((1, 1, 1))
-        with row5_1_1:
-            execucao_despesas(ano)   
+        st.markdown("<h2 style='text-align: center;'>Visão Geral</h2>", unsafe_allow_html=True) 
 
-        with row5_2_1:
-            categorias_economicas(ano)
-
-        with row5_3_1:
-            st.markdown("<center>", unsafe_allow_html=True)
-            execucao_restos_a_pagar(ano)
-
-        st.markdown("---")
-
-        st.markdown("<h2 style='text-align: center;'>Pagamento de despesas por mês do ano</h2>", unsafe_allow_html=True) 
-        despesa_12meses(ano)
+        row1_1_1, row1_2_1, row1_3_1 = st.columns((1, 1, 1))
+        with row1_1_1:
+            execucao_despesas(ano_exercicio)   
+        with row1_2_1:
+            categorias_economicas(ano_exercicio)
+        with row1_3_1:
+            execucao_restos_a_pagar(ano_exercicio)
 
         st.markdown("---")
 
         #SEC2
-        st.markdown("<h2 style='text-align: center;'>Pagamento de despesas por área de atuação (função)</h2>", unsafe_allow_html=True) 
-
-        despesas_por_area(ano)
+        st.markdown("<h2 style='text-align: center;'>Pagamento de despesas por mês do ano</h2>", unsafe_allow_html=True)
+        st.markdown(f'<h6 style=\'text-align: center;\'>(Clique duas vezes em uma categoria para selecioná-la)</h6>', unsafe_allow_html=True)  
+        despesa_12meses(ano_exercicio)
 
         st.markdown("---")
 
-        st.markdown("<h2 style='text-align: center;'>Pagamento de despesas por secretaria</h2>", unsafe_allow_html=True)
+        #SEC3
+        st.markdown("<h2 style='text-align: center;'>Pagamento de despesas no ano por área de atuação (função)</h2>", unsafe_allow_html=True) 
+
+        despesas_por_area(ano_exercicio)
+
+        st.markdown("---")
+
+        #SEC4
+        st.markdown("<h2 style='text-align: center;'>Pagamento de despesas no ano por elemento de despesa</h2>", unsafe_allow_html=True)
         
-        despesas_por_secretaria(ano) 
+        despesas_por_elemento(ano_exercicio) 
 
         st.markdown("---")
 
-        st.markdown("<h2 style='text-align: center;'>Pagamento de despesas por grupo de despesa</h2>", unsafe_allow_html=True)
+        #SEC5
+        st.markdown("<h2 style='text-align: center;'>Pagamento de despesas no ano por secretaria</h2>", unsafe_allow_html=True)
         
-        despesas_por_grupo(ano) 
+        despesas_por_secretaria(ano_exercicio) 
 
         st.markdown("---")
 
-        st.markdown("<h2 style='text-align: center;'>Despesas empenhadas (box plot)</h2>", unsafe_allow_html=True)
-        categoria_despesa = st.selectbox("Qual categoria de despesa?", list([categoria.value for categoria in CategoriasDespesa]), key = 'seletor_boxplot')
-        boxplot_despesa_dos_12_meses_de_um_ano(ano, categoria_despesa)
+        #SEC6
+        st.markdown("<h2 style='text-align: center;'>Maiores despesas empenhadas no ano</h2>", unsafe_allow_html=True) 
+        
+        row6_1, row6_2, row6_3 = st.columns((1, 1, 1))
+        with row6_1:
+            categoria_despesa = st.selectbox("Qual categoria de despesa?", ["Todos"] + list([categoria for categoria in despesa_categories]), key = 'seletor_boxplot')        
+        with row6_2:
+            mes = st.selectbox("Qual o mês?", ['Todos', 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1], key = 'month')           
+        with row6_3:
+            tamanho_resultados = st.selectbox("Número de resultados", [10, 50, 100], key = 'results')        
+
+        maiores_despesas_ano(ano_exercicio, 0 if mes == 'Todos' else mes, categoria_despesa, tamanho_resultados)
+
+        dados_estatisticos_mes(ano_exercicio, 0 if mes == 'Todos' else mes, categoria_despesa)
+
     elif tipo_de_dados == "RECEITA":
 
         st.markdown("<h2 style='text-align: center;'>Arrecadação por mês do ano</h2>", unsafe_allow_html=True) 
-        receita_12meses(ano) 
+        receita_12meses(ano_exercicio) 
 
         st.markdown("---")
         st.markdown("<h2 style='text-align: center;'>Arrecadação anual (por espécie)</h2>", unsafe_allow_html=True)
-        receitas_por_especie(ano)
+        receitas_por_especie(ano_exercicio)
         st.markdown("---")
         st.markdown("<h2 style='text-align: center;'>Arrecadação anual (por categoria econômica)</h2>", unsafe_allow_html=True)
-        categorias_economicas_receita(ano)
+        categorias_economicas_receita(ano_exercicio)
+    

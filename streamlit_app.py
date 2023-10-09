@@ -750,7 +750,7 @@ if __name__ == "__main__":
         st.markdown("---")
 
         #SEC6
-        st.markdown("<h2 style='text-align: center;'>Maiores despesas empenhadas no ano</h2>", unsafe_allow_html=True) 
+        st.markdown("<h2 style='text-align: center;'>Maiores despesas empenhadas</h2>", unsafe_allow_html=True) 
         
         row6_1, row6_2, row6_3 = st.columns((1, 1, 1))
         with row6_1:
